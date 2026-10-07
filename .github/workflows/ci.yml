@@ -1,0 +1,153 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  dwa:
+    name: DWA planner (CMake)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake libeigen3-dev libopencv-dev
+
+      - name: Configure
+        run: >
+          cmake -S dwa_local_planner -B build
+          -DCMAKE_BUILD_TYPE=Release
+          -DDWA_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build -j"$(nproc)"
+
+      - name: Test
+        working-directory: build
+        run: ctest --output-on-failure
+
+      # The planner opens an OpenCV window, so the end-to-end runs use the
+      # headless mode. Exit code 0 means the goal was reached.
+      - name: Scenario - default reaches the goal
+        run: ./build/dwa_local_planner --scenario default --no-gui
+
+      - name: Scenario - offset from the origin reaches the goal
+        run: ./build/dwa_local_planner --scenario offset --no-gui
+
+      # Starts inside an obstacle, so every rollout collides: must fall back
+      # to recovery and exit cleanly on the iteration limit (exit code 1)
+      # rather than crashing.
+      - name: Scenario - trapped falls back to recovery without crashing
+        run: |
+          set +e
+          ./build/dwa_local_planner --scenario trapped --no-gui --max-iterations 50
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit 1 (iteration limit), got $code"
+            exit 1
+          fi
+
+      - name: Scenario - sealed corridor is not crossed
+        run: |
+          set +e
+          ./build/dwa_local_planner --scenario corridor --no-gui --max-iterations 400
+          code=$?
+          set -e
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit 1 (goal unreachable behind the wall), got $code"
+            exit 1
+          fi
+
+      # A non-unit tolerance is where the old squared-vs-unsquared goal test
+      # would have diverged.
+      - name: Non-unit goal tolerance is honoured
+        run: ./build/dwa_local_planner --scenario default --no-gui --goal-tolerance 2.5
+
+      - name: Trace output is produced
+        run: |
+          ./build/dwa_local_planner --scenario default --no-gui --trace run.csv
+          test -s run.csv
+          head -1 run.csv | grep -q '^# scenario,default$'
+
+      # dwa_core has no graphics dependency, so the whole project must build
+      # and test without OpenCV present at all.
+      - name: Headless build without OpenCV
+        run: |
+          cmake -S dwa_local_planner -B build-headless             -DCMAKE_BUILD_TYPE=Release -DDWA_WITH_GUI=OFF
+          cmake --build build-headless -j"$(nproc)"
+          cd build-headless && ctest --output-on-failure
+          ./dwa_local_planner --scenario default --no-gui
+
+  mcl:
+    name: MCL localization (ROS 2 Jazzy)
+    runs-on: ubuntu-24.04
+    container:
+      image: ros:jazzy-ros-base
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          apt-get update
+          rosdep update --rosdistro jazzy
+          mkdir -p /ws/src
+          cp -r mcl_localization /ws/src/
+          cd /ws
+          rosdep install --from-paths src --ignore-src -r -y \
+            --rosdistro jazzy --skip-keys "rviz2"
+
+      - name: Build
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd /ws
+          colcon build --packages-select mcl_localization \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+      - name: Test
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          cd /ws
+          colcon test --packages-select mcl_localization --event-handlers console_direct+
+          colcon test-result --verbose
+
+      - name: Map generator reproduces the shipped map
+        shell: bash
+        run: |
+          python3 -m pip install --quiet --break-system-packages numpy ||             python3 -m pip install --quiet numpy
+          cd /ws/src/mcl_localization
+          python3 tools/make_map.py --out-dir /tmp/regen
+          # The committed map must be exactly what the generator produces.
+          cmp /tmp/regen/map.pgm map/map.pgm
+          cmp /tmp/regen/map.yaml map/map.yaml
+
+      - name: Localization accuracy (offline harness)
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source /ws/install/setup.bash
+          cd /ws/src/mcl_localization
+          # Exit code is 0 only if every seed converged, so this is a real gate
+          # on localization accuracy, not just on the build.
+          mcl_evaluate --map map/map.yaml --mode track --particles 500 --seeds 8
+          mcl_evaluate --map map/map.yaml --mode global --particles 5000 --seeds 4
+
+      - name: Node starts and exposes its parameters
+        shell: bash
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source /ws/install/setup.bash
+          timeout 20s ros2 run mcl_localization mcl_localization_node &
+          sleep 8
+          ros2 param get /mcl_localization sigma_hit
+          ros2 param get /mcl_localization particle_count
+          wait || true
