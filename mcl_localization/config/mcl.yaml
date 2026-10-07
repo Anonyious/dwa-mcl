@@ -1,0 +1,50 @@
+# Parameters for the mcl_localization node.
+#
+# Every tuning value is a declared ROS parameter. At first these were hardcoded
+# in two different headers, and the model constructor discarded the ones it
+# was passed -- so changing them had no effect at all.
+mcl_localization:
+  ros__parameters:
+    # --- Frames ---
+    map_frame: map
+    odom_frame: odom
+    base_frame: base_link
+
+    update_rate_hz: 10.0
+    publish_tf: true
+
+    # --- Initialization ---
+    # Global localization over this map is ambiguity-limited (two similar
+    # rooms); seeding from RViz's "2D Pose Estimate" is the reliable path.
+    # See the README.
+    initialize_globally: false
+    initial_pose_xy_stddev: 0.5
+    initial_pose_yaw_stddev: 0.2
+
+    # --- Filter ---
+    particle_count: 1000
+    min_translation_for_update: 0.02   # m
+    min_rotation_for_update: 0.02      # rad
+    resample_threshold_ratio: 0.5      # resample when Neff < ratio * N
+    random_seed: 42
+
+    # --- Odometry motion model (Probabilistic Robotics, Table 5.6) ---
+    alpha1: 0.05      # rotation noise from rotation
+    alpha2: 0.05      # rotation noise from translation
+    alpha3: 0.05      # translation noise from translation
+    alpha4: 0.05      # translation noise from rotation
+    motion_min_translation: 0.001      # m; below this, skip the rotation split
+
+    # --- Likelihood field sensor model (Table 6.3) ---
+    z_hit: 0.9
+    z_rand: 0.1
+    sigma_hit: 0.1                     # m; measured optimum on this map
+    beam_skip: 12                      # use every Nth beam
+    laser_max_range: 0.0               # 0 = take range_max from the scan
+    normalize_by_beam_count: true      # geometric mean, not raw product
+
+    # --- Laser pose fallback ---
+    # Used only if the base_frame -> scan frame TF lookup fails.
+    laser_offset_x: 0.0
+    laser_offset_y: 0.0
+    laser_offset_yaw: 0.0
