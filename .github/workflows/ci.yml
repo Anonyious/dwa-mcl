@@ -138,8 +138,8 @@ jobs:
           cd /ws/src/mcl_localization
           # Exit code is 0 only if every seed converged, so this is a real gate
           # on localization accuracy, not just on the build.
-          mcl_evaluate --map map/map.yaml --mode track --particles 500 --seeds 8
-          mcl_evaluate --map map/map.yaml --mode global --particles 5000 --seeds 4
+          ros2 run mcl_localization mcl_evaluate --map map/map.yaml --mode track --particles 500 --seeds 8
+          ros2 run mcl_localization mcl_evaluate --map map/map.yaml --mode global --particles 5000 --seeds 4
 
       - name: Node starts and exposes its parameters
         shell: bash
