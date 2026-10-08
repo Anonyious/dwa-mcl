@@ -123,7 +123,9 @@ jobs:
       - name: Map generator reproduces the shipped map
         shell: bash
         run: |
-          python3 -m pip install --quiet --break-system-packages numpy ||             python3 -m pip install --quiet numpy
+          # The ros:jazzy-ros-base image ships no pip, so numpy comes from apt.
+          apt-get update -qq
+          apt-get install -y --no-install-recommends python3-numpy
           cd /ws/src/mcl_localization
           python3 tools/make_map.py --out-dir /tmp/regen
           # The committed map must be exactly what the generator produces.
