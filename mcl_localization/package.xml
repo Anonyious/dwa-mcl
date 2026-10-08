@@ -16,8 +16,8 @@
   <buildtool_depend>ament_cmake</buildtool_depend>
 
   <!--
-    An earlier package.xml declared NO build or exec dependencies at all --
-    only buildtool_depend on catkin -- so `rosdep install` installed nothing
+    An earlier package.xml declared NO build or exec dependencies at all,
+    only buildtool_depend on catkin, so `rosdep install` installed nothing
     and a clean build failed. All of these are now declared explicitly.
   -->
   <depend>rclcpp</depend>
