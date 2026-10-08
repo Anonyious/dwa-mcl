@@ -4,7 +4,7 @@
 The trace is produced by the planner itself:
 
     dwa_local_planner --scenario default --no-gui --trace run.csv
-    python tools/render_gif.py run.csv -o data/dynamicWindowApproach.gif
+    python tools/render_gif.py run.csv -o data/dwa_default.gif
 
 So the animation is this program's actual output, not a separate
 reimplementation of the planner.

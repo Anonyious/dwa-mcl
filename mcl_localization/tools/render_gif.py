@@ -4,7 +4,7 @@
 The trace is produced by the evaluation harness itself:
 
     mcl_evaluate --map map/map.yaml --mode track --trace run.csv
-    python tools/render_gif.py run.csv --map map/map.pgm -o data/particleFilter.gif
+    python tools/render_gif.py run.csv --map map/map.pgm -o data/mcl_tracking.gif
 
 So the animation shows this package's actual filter output against known
 ground truth, not a separate reimplementation.
