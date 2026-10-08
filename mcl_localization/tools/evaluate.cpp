@@ -305,10 +305,19 @@ struct Result {
   double meanError = 0.0;
   double maxError = 0.0;
   double odometryDrift = 0.0;
-  double pathLength = 0.0;
   int recoveries = 0;
   bool converged = false;
 };
+
+// Length of the ground-truth route. Depends only on the route, so it is
+// computed once rather than being accumulated inside every filter run.
+double routeLength(const std::vector<mcl::Pose2D>& route) {
+  double length = 0.0;
+  for (std::size_t i = 1; i < route.size(); ++i) {
+    length += std::hypot(route[i].x - route[i - 1].x, route[i].y - route[i - 1].y);
+  }
+  return length;
+}
 
 struct Options {
   std::string mapPath = "map/map.yaml";
@@ -370,7 +379,6 @@ Result runOnce(const mcl::OccupancyGrid& map,
     const double dx = truth.x - previous.x;
     const double dy = truth.y - previous.y;
     const double trueStep = std::sqrt(dx * dx + dy * dy);
-    result.pathLength += trueStep;
 
     const double noisyStep = trueStep * (1.0 + driftNoise(rng));
     const double dTheta =
@@ -459,6 +467,7 @@ int main(int argc, char** argv) {
                 << "  --beam-skip N     use every Nth beam\n"
                 << "  --sigma-hit M     likelihood field sigma, metres\n"
                 << "  --seeds N         run N seeds and summarise\n"
+                << "  --first-seed N    first seed to use (default 1)\n"
                 << "  --no-normalize    raw product instead of the geometric mean\n"
                 << "  --trace FILE      write a CSV trace (first seed only)\n"
                 << "  --quiet           summary only\n";
@@ -538,7 +547,7 @@ int main(int argc, char** argv) {
   }
 
   std::cout << "\npath length      " << std::fixed << std::setprecision(2)
-            << runOnce(*map, map, route, opt, 999, nullptr).pathLength << " m\n"
+            << routeLength(route) << " m\n"
             << "converged        " << converged << "/" << opt.seeds
             << " seeds within " << opt.convergeWithin << " m\n"
             << "mean final error " << std::setprecision(3)
