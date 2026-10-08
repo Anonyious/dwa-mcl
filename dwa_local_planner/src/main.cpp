@@ -40,6 +40,7 @@ void printUsage(const char* program) {
       << "  --goal-tolerance R     Distance at which the goal counts as reached\n"
       << "  --max-iterations N     Abort after N control steps\n"
       << "  --no-gui               Run headless (for CI and scripted checks)\n"
+      << "  --trace FILE           Write the run to CSV, for plotting\n"
       << "  --help                 Show this message\n\n"
       << "Scenarios:\n";
   for (const std::string& name : dwa::scenarioNames()) {
