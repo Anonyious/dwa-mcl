@@ -69,33 +69,52 @@ so every term contributes `weight × [0, 1]` and the weights express relative
 priority directly.
 
 The other obvious choice — dividing each term by its sum over the candidate
-set — **does not work at this scale**, and it is worth recording why, because
-it is not obvious and it produces a planner that looks plausible and then
-quietly refuses to move.
+set — **destroys the weights' meaning at this scale**, and it is worth
+recording why, because it is not obvious.
 
 Sum-normalization preserves each term's *relative* spread. With the default
 limits the dynamic window is extremely narrow: `a_max·dt = 0.2 × 0.1 = 0.02`
 m/s. Over a 4 s horizon the candidates therefore differ in position by at most
 a few centimetres, while they differ in final *heading* by up to
-`2·α_max·dt·T ≈ 0.56` rad. Measured on the `default` scenario at startup, the
-weighted spread of each sum-normalized term was:
+`2·α_max·dt·T ≈ 0.56` rad. Measured on the `default` scenario at startup, over
+the 231 collision-free candidates:
 
-| Term | Raw mean | Weighted spread after ÷sum |
-|---|---|---|
-| heading | ≈ 0.5 rad | **1.6 × 10⁻²** |
-| clearance | ≈ 0.17 /m | 6 × 10⁻⁵ |
-| velocity | ≈ 1.0 m/s | 9 × 10⁻⁵ |
-| goalDistance | ≈ 27 m | 2 × 10⁻⁵ |
+| Term | Raw mean | Raw range | Range ÷ sum |
+|---|---|---|---|
+| heading | 0.39 rad | 0.56 rad | **6.2 × 10⁻³** |
+| velocity | 1.0 m/s | 0.040 m/s | 1.7 × 10⁻⁴ |
+| clearance | 0.17 /m | 0.0024 /m | 6.0 × 10⁻⁵ |
+| goalDistance | 32.5 m | 0.15 m | 2.1 × 10⁻⁵ |
 
-The goal-distance term has a large mean and a tiny spread, so dividing by its
+The goal-distance term has a large mean and a tiny range, so dividing by its
 sum dilutes it into irrelevance; the heading term has a small mean and a large
-relative spread, so it survives and dominates by roughly two orders of
-magnitude. The planner turns smartly to face the goal and then never
-accelerates — observed peak speed 0.08 m/s against a 1.0 m/s limit, still 0.18
-m from its start after 2000 cycles.
+relative range, so it survives and outweighs goal distance by a factor of
+roughly 300. Whatever the four weights are set to, the heading term decides,
+which is precisely what a normalization step is supposed to prevent.
+
+What that does *not* do is stall the robot, and it is worth being exact about
+why. The heading cost at the endpoint is `|bearing − (θ₀ + ω·T)|`: it depends
+on `ω` alone, not on `v`. So all 11 velocity samples sharing the best `ω` tie
+on the dominant term, and the diluted terms break the tie in favour of the
+fastest one. Run end to end with sum-normalization and weights all 1.0, the
+planner still reaches the goal on `default` in 344 cycles at full speed —
+indistinguishable from the shipped planner's 345, and for a reason that has
+nothing to do with the weights being right.
+
+The stall is real, but it comes from *actually* over-weighting heading or
+clearance, which min-max normalization makes possible because every term then
+spans the full `[0, 1]`:
+
+| Weighting | `default` |
+|---|---|
+| heading only (0, 1, 0, 0) | never reaches the goal in 2000 cycles; peak forward speed 0.14 m/s against a 1.0 m/s limit, and it reverses away from the start |
+| 1, 2, 1, 0.5 | stalls at the start: `v = 0`, 0.00 m travelled in 2000 cycles |
+| 1, 1, 2, 1 | stalls at the start, likewise |
 
 Min-max normalization removes the dependence on each term's mean magnitude,
-which is what makes the weights portable across scenarios.
+which is what makes the weights portable across scenarios — and what makes
+mis-weighting show up as visibly broken behaviour instead of a term silently
+dropping out.
 
 ## Weights
 
@@ -124,5 +143,5 @@ If every candidate collides, `plan()` returns `std::nullopt`. This is reachable:
 the robot only needs to already be inside an obstacle's collision radius, after
 which even pure in-place rotation collides. Callers must handle it;
 `recoveryControl()` decelerates toward zero and rotates in place, both clamped
-to the admissible window. An earlier version code indexed element `[1]` of the empty
+to the admissible window. An earlier version indexed element `[1]` of the empty
 result instead, which is undefined behaviour. The `trapped` scenario covers it.

@@ -134,7 +134,7 @@ colcon test --packages-select mcl_localization
 colcon test-result --verbose
 ```
 
-~90 cases over angle wrapping and the circular mean, the rigid-transform
+83 cases over angle wrapping and the circular mean, the rigid-transform
 sensor offset, grid conversion (map origin, flooring, bounds, rotated origin),
 the distance transform against brute force, motion-model σ non-negativity and
 angle wrapping, the sensor model across scan lengths and beam counts, the
@@ -143,13 +143,14 @@ through drifting odometry.
 
 ## Performance
 
-Shipped map, 20.25 m route, 30 of 360 beams, odometry drifting 0.35-0.71 m.
-8 seeds per row; every number reproducible with `mcl_evaluate`.
+Shipped map, 20.25 m route, 30 of 360 beams, odometry drifting 0.31-0.95 m
+across the seeds. 8 seeds per row; every number reproducible with
+`mcl_evaluate`.
 
 | | 200 | 500 | 1 000 | 2 000 | 5 000 particles |
 |---|---|---|---|---|---|
 | **tracking** (seeded prior) | 8/8, 0.063 m | 8/8, 0.062 m | 8/8, 0.055 m | - | - |
-| **global** (uniform cloud) | - | 1/8 | - | 4/8 | **8/8, 0.121 m** |
+| **global** (uniform cloud) | - | 1/8 | 2/8 | 4/8 | **8/8, 0.121 m** |
 
 Tracking is reliable from 200 particles. Global localization needs about 5 000
 to be dependable; see [docs/algorithm.md](docs/algorithm.md#5-measured-performance).
@@ -157,7 +158,7 @@ to be dependable; see [docs/algorithm.md](docs/algorithm.md#5-measured-performan
 ## Known limitations
 
 - **Global localization needs ~5 000 particles**, against ~200 for tracking,
-  and is unreliable below 2 000. KLD-adaptive sampling would close that gap
+  and is unreliable at 2 000 and below (4/8 seeds at 2 000, 1/8 at 500). KLD-adaptive sampling would close that gap
   automatically but is **not implemented**, nor is random particle injection
   (AMCL's `recovery_alpha_slow/fast`), so the filter cannot recover if it does
   lock onto a wrong mode. See

@@ -33,9 +33,10 @@ void lowVarianceResample(const std::vector<Particle>& source,
 class ParticleFilter {
  public:
   struct Params {
-    // 1000 is enough for reliable tracking (measured 8/8 seeds within 0.1 m
-    // on the shipped map, and still 8/8 at 200). Global localization needs
-    // more and is not reliable at any count here -- see the README.
+    // 1000 is enough for reliable tracking (measured 8/8 seeds, mean final
+    // error 0.055 m on the shipped map, and still 8/8 at 200). Global
+    // localization from a uniform cloud needs about 5000 to be dependable --
+    // 8/8 seeds there against 4/8 at 2000. See the README.
     int particleCount = 1000;
 
     // Only update when the robot has actually moved; otherwise repeated

@@ -50,7 +50,7 @@ Scenario offsetScenario() {
 // The robot starts already inside the collision radius of an obstacle, so
 // every sampled rollout -- including pure in-place rotation -- collides and
 // plan() has nothing to return. Exercises the recovery path; an earlier version
-// code indexed into the resulting empty trajectory.
+// indexed into the resulting empty trajectory.
 Scenario trappedScenario() {
   Scenario scenario;
   scenario.name = "trapped";
@@ -69,7 +69,7 @@ Scenario trappedScenario() {
 // be driven around, which is not a tunneling failure.
 //
 // The goal sits beyond the wall and is unreachable by construction. The robot
-// must approach, stop, and never appear on the far side. An earlier version cost
+// must approach, stop, and never appear on the far side. An earlier cost
 // function sampled every other trajectory pose and could step across a thin
 // obstacle without ever registering a collision.
 Scenario corridorScenario() {

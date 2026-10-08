@@ -96,19 +96,21 @@ double SensorModel::logLikelihood(const Pose2D& laserPose, const LaserScan& scan
   //
   // The raw product is the textbook model (Probabilistic Robotics Table 6.3)
   // and it tracks well, but it is far too peaked for global localization: with
-  // 30 beams the log-likelihood gap between a good and a mediocre particle is
-  // ~160, so one particle takes essentially all the weight and the first
-  // resample annihilates the cloud's diversity. Measured on the shipped map,
-  // the cloud collapsed to a 0.02 m spread within 20 cycles and locked onto a
-  // wrong mode every time.
+  // 30 beams the log-likelihood spread over a uniform cloud is ~120 on the
+  // shipped map, and the best pose scores 87 above the cloud mean, so exp()
+  // of that difference hands one particle essentially all the weight and the
+  // first resample annihilates the cloud's diversity. Under the geometric
+  // mean the same spread is 4.0 and the best-minus-mean gap 2.9. Measured
+  // over 8 seeds at 5000 particles, global localization converges 8/8 with
+  // the geometric mean against 5/8 with the product.
   //
-  // AMCL addresses the same problem with a sum of cubes. Dividing by the beam
-  // count does better here and has a property the sum of cubes lacks: the
-  // weight no longer depends on how many beams were used, so beamSkip is
-  // purely a compute knob instead of silently retuning the filter's
-  // confidence. Measured final error stayed within 0.03-0.10 m as the beam
-  // count went from 90 down to 8, where the sum of cubes drifted over
-  // 0.11-0.27 m.
+  // AMCL addresses the same problem with a sum of cubes, which is not
+  // implemented here. Dividing by the beam count has a property the sum of
+  // cubes lacks: the weight no longer depends on how many beams were used, so
+  // beamSkip is purely a compute knob instead of silently retuning the
+  // filter's confidence. Measured tracking error stayed within 0.054-0.059 m
+  // as the beam count went from 90 down to 7, where the raw product wandered
+  // over 0.051-0.166 m.
   return logLikelihood / static_cast<double>(beamsScored);
 }
 

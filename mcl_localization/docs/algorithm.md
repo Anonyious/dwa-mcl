@@ -108,10 +108,12 @@ pins this.
 The textbook model is a **product** over beams. It tracks acceptably and it is
 markedly worse at global localization.
 
-With 30 beams the log-likelihood gap between a good particle and a mediocre one
-runs to the hundreds, so `exp` of that difference hands one particle
+With 30 beams the log-likelihood spread across a uniform cloud is about 120 —
+measured over 2000 random free poses on the shipped map, the best pose scores
+87 above the cloud mean. `exp` of that difference hands one particle
 essentially all the weight and the first resample annihilates the cloud's
-diversity.
+diversity. Under the geometric mean the same spread is 4.0, and the best pose
+sits 2.9 above the mean.
 
 AMCL addresses the same problem by summing cubes rather than multiplying. This
 implementation instead divides the summed log-likelihood by the number of beams
@@ -126,25 +128,33 @@ mcl_evaluate --mode global --particles N --seeds 8 --no-normalize   # product
 
 | particles | geometric mean | raw product |
 |---|---|---|
-| 2 000 | 4/8 converged, 1.72 m | 4/8 converged, 7.90 m |
-| 5 000 | **8/8 converged, 0.13 m** | 6/8 converged, 3.39 m |
-| 10 000 | **8/8 converged, 0.09 m** | 7/8 converged, 2.35 m |
+| 2 000 | 4/8 converged, 6.49 m | 2/8 converged, 10.77 m |
+| 5 000 | **8/8 converged, 0.121 m** | 5/8 converged, 4.16 m |
+| 10 000 | 7/8 converged, 2.37 m | 5/8 converged, 4.15 m |
+
+The mean final error is taken over *all* eight seeds, so a single seed that
+ends up in the wrong room dominates it; read the converged count first. Note
+also that 10 000 particles do worse than 5 000 here: without random particle
+injection a bigger cloud is not monotonically better, it just makes a wrong
+initial lock heavier to shift.
 
 The geometric mean also has a property the product lacks: the weight no longer
 depends on *how many* beams were used, so `beam_skip` is purely a compute knob
 instead of silently retuning how peaked the weights are. Tracking error across
 beam counts (8 seeds each):
 
-| beams | geometric mean | raw product |
+| beams (`--beam-skip`) | geometric mean | raw product |
 |---|---|---|
-| 90 | 0.083 m | 0.110 m |
-| 30 | 0.089 m | 0.055 m |
-| 15 | 0.094 m | 0.132 m |
-| 7 | 0.092 m | 0.174 m |
+| 90 (4) | 0.054 m | 0.166 m |
+| 30 (12) | 0.055 m | 0.139 m |
+| 15 (24) | 0.059 m | 0.061 m |
+| 7 (48) | 0.058 m | 0.051 m |
 
-The geometric mean holds 0.083–0.094 m across a 13× change in beam count; the
-product wanders over 0.055–0.174 m. Set `normalize_by_beam_count: false` for
-the textbook product.
+The geometric mean holds 0.054–0.059 m across a 13× change in beam count; the
+product wanders over 0.051–0.166 m, a range five times wider, and in the same
+direction the theory predicts — more beams means a more peaked product, so the
+cloud collapses sooner and tracks worse. Set `normalize_by_beam_count: false`
+for the textbook product.
 
 ### σ_hit
 
@@ -154,7 +164,7 @@ Measured on the shipped map at 0.05 m/cell, 8 seeds:
 |---|---|---|
 | 0.05 m | 0.067 m | — |
 | **0.10 m** | **0.055 m** | **8/8, 0.121 m** |
-| 0.15 m | — | 7/8, 1.909 m |
+| 0.15 m | 0.064 m | 7/8, 1.909 m |
 | 0.20 m | 0.089 m | 8/8, 0.126 m |
 | 0.35 m | 0.160 m | — |
 | 0.50 m | 0.223 m | — |
@@ -221,7 +231,8 @@ wrong answer is indistinguishable from a correct one.
 ## 5. Measured performance
 
 Shipped map (12 × 10 m at 0.05 m/cell, three rooms plus an alcove), a 20.25 m
-route, 30 of 360 beams, odometry drifting 0.35–0.71 m end to end. 8 seeds.
+route, 30 of 360 beams, odometry drifting 0.31–0.95 m end to end across the
+eight seeds. 8 seeds.
 
 ```
 mcl_evaluate --map map/map.yaml --mode track  --particles N --seeds 8
@@ -236,14 +247,19 @@ mcl_evaluate --map map/map.yaml --mode global --particles N --seeds 8
 | 500 | 8/8 | 0.062 m |
 | 1 000 | 8/8 | 0.055 m |
 
-**Global localization from a uniform cloud — needs numbers.**
+**Global localization from a uniform cloud — needs ~5 000 particles.**
 
 | particles | converged | mean final error |
 |---|---|---|
-| 500 | 1/8 | 3.01 m |
-| 2 000 | 4/8 | 1.72 m |
+| 500 | 1/8 | 11.30 m |
+| 1 000 | 2/8 | 5.83 m |
+| 2 000 | 4/8 | 6.49 m |
 | 5 000 | **8/8** | 0.121 m |
-| 10 000 | **8/8** | 0.090 m |
+| 10 000 | 7/8 | 2.37 m |
+
+The error column averages over all eight seeds, converged or not, so it tracks
+the converged count rather than the accuracy of a successful run: at 5 000,
+where every seed converges, it is 0.121 m.
 
 Global localization is a genuinely harder problem than tracking: the filter has
 to resolve which room it is in before it can refine a pose, and with too few

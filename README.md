@@ -30,25 +30,26 @@ error is a number rather than an impression from watching RViz.
 
 ```bash
 mcl_evaluate --map map/map.yaml --mode track --seeds 8
-#   8/8 seeds converged, mean final error 0.055 m, over a 20 m route
-#   with odometry drifting 0.35-0.71 m
+#   8/8 seeds converged, mean final error 0.055 m, over a 20.25 m route
+#   with odometry drifting 0.31-0.95 m
 ```
 
 ## Some things the measurements settled
 
-**Normalizing DWA's cost terms by their sum does not work.** It preserves each
-term's *relative* spread, so goal distance (mean ≈27 m, spread 0.16 m) is
-diluted into irrelevance while heading error (mean ≈0.5 rad, spread 0.56 rad)
-dominates by two orders of magnitude. The planner turns smartly to face the
-goal and then never accelerates — peak speed 0.08 m/s against a 1.0 m/s limit,
-0.18 m from its start after 2 000 cycles. Min-max normalization fixes it.
-[Details.](dwa_local_planner/docs/cost_function.md)
+**Normalizing DWA's cost terms by their sum leaves the weights meaningless.**
+It preserves each term's *relative* spread, so goal distance (mean 32.5 m,
+range 0.15 m over the candidate set) is diluted into irrelevance while heading
+error (mean 0.39 rad, range 0.56 rad) outweighs it by a factor of ~300 no
+matter what the weights say. Min-max normalization gives every term the full
+`[0, 1]`, which is also what makes a genuinely bad weighting fail loudly:
+scoring on heading alone drives the robot backwards away from the goal, and
+weights `1, 2, 1, 0.5` stall it at `v = 0`. [Details.](dwa_local_planner/docs/cost_function.md)
 
 **The textbook product over laser beams is worse than a geometric mean.** With
 30 beams the log-likelihood gap between a good particle and a mediocre one runs
-to the hundreds, so one particle takes all the weight and the first resample
+to about 120, so one particle takes all the weight and the first resample
 annihilates the cloud. Dividing by the beam count gives 8/8 seeds converging at
-5 000 particles where the raw product gives 6/8, and makes `beam_skip` a pure
+5 000 particles where the raw product gives 5/8, and makes `beam_skip` a pure
 compute knob rather than something that silently retunes the filter's
 confidence. [Details.](mcl_localization/docs/algorithm.md)
 

@@ -14,9 +14,10 @@ mcl_localization:
     publish_tf: true
 
     # --- Initialization ---
-    # Global localization over this map is ambiguity-limited (two similar
-    # rooms); seeding from RViz's "2D Pose Estimate" is the reliable path.
-    # See the README.
+    # Global localization over this map works, but it needs about 5000
+    # particles to be dependable; at the 1000 below it converges on 2 of 8
+    # seeds. Seeding from RViz's "2D Pose Estimate" is the reliable path at
+    # this particle count. See the README.
     initialize_globally: false
     initial_pose_xy_stddev: 0.5
     initial_pose_yaw_stddev: 0.2
